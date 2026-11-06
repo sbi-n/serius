@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: CompeyDev/setup-rokit@v0.2.1
+
+      - name: Publish to Wally
+        shell: bash
+        env:
+          WALLY_AUTH_TOKEN: ${{ secrets.WALLY_AUTH_TOKEN }}
+        run: |
+          wally login --token "$WALLY_AUTH_TOKEN"
+          wally publish

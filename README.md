@@ -44,3 +44,15 @@ binary values and attributes, and `src/Reflection.luau` handles property discove
 and access.
 
 Build the ModuleScript with `rojo build -o serius.rbxm`.
+
+## Releases
+
+Publishing a GitHub Release automatically publishes `sbi-n/serius` to Wally.
+Before the first release, run `wally login` with an account that can publish to
+the `sbi-n` scope. Copy the token for `https://api.wally.run/` from
+`~/.wally/auth.toml` into the repository's `WALLY_AUTH_TOKEN` Actions secret.
+
+For each release, update `package.version` in `wally.toml`, commit and push the
+changes, then publish a GitHub Release from that commit. Wally uses the version
+in `wally.toml`; the release tag does not change it. Draft releases do not publish
+to Wally.
