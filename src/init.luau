@@ -157,7 +157,6 @@ const function create_mesh_parts(model: Model, context: Values.Context)
 		end
 	end
 	local pending = #requests
-	local failure: string? = nil
 	for _, request in requests do
 		task.spawn(function()
 			const success, message = pcall(function()
@@ -165,18 +164,16 @@ const function create_mesh_parts(model: Model, context: Values.Context)
 					then Instance.new("MeshPart")
 					else AssetService:CreateMeshPartAsync(request.content, request.options)
 			end)
-			if not success and failure == nil then
-				failure = `failed to create MeshPart {request.referent}: {message}`
+			if not success then
+				context.instances[request.referent] = Instance.new("MeshPart")
+				warn(`failed to create MeshPart {request.referent}, using an empty MeshPart: {message}`)
 			end
 			pending -= 1
 		end)
 	end
-	-- Join every request before propagating errors so cleanup includes late results.
+	-- Join every request before restoring properties and references.
 	while pending > 0 do
 		task.wait()
-	end
-	if failure ~= nil then
-		error(failure, 0)
 	end
 end
 
@@ -307,6 +304,4 @@ return {
 	serialize_model = serialize_model,
 	deserialize_model = deserialize_model,
 	read_model = Rbxm.read_model,
-	read_shared_strings = Rbxm.read_shared_strings,
-	internal = Rbxm.internal,
 }

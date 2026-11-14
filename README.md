@@ -20,7 +20,8 @@ properties, descendants, internal references, attributes, and tags restored.
 MeshParts with mesh content are created concurrently with `AssetService:CreateMeshPartAsync`
 before properties and references are restored, preserving their mesh IDs and
 collision, render, and fluid fidelity settings. This function may yield until all
-mesh requests finish; the caller must have access to the referenced assets.
+mesh requests finish. Mesh creation failures emit a warning and fall back to empty
+MeshParts, allowing the remaining properties, hierarchy, and references to be restored.
 For engine-generated RBXM, collision fidelity is recovered from physical config
 headers (versions 0, 7, and 8) when no explicit property is present.
 Failed imports wait for outstanding requests and destroy the instances they created.
