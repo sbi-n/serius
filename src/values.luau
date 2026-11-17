@@ -157,13 +157,22 @@ const function write_string(cursor: Cursor, value: string)
 	buffer.writestring(cursor.bytes, position, value)
 end
 
+const ENUM_VALUES: { [string]: { [number]: EnumItem } } = {}
+
 const function get_enum(name: string, value: number): EnumItem
-	for _, item in (Enum :: any)[name]:GetEnumItems() do
-		if item.Value == value then
-			return item
+	local items = ENUM_VALUES[name]
+	if items == nil then
+		items = {}
+		for _, item in (Enum :: any)[name]:GetEnumItems() do
+			items[item.Value] = item
 		end
+		ENUM_VALUES[name] = items
 	end
-	error(`invalid Enum.{name} value {value}`)
+	const item = items[value]
+	if item == nil then
+		error(`invalid Enum.{name} value {value}`)
+	end
+	return item
 end
 
 const function read_collision_fidelity(data: string): EnumItem?
@@ -319,7 +328,7 @@ const function write_int64s(cursor: Cursor, values: Values, count: number, capab
 	end
 end
 
-const function read_rotation(cursor: Cursor, columns: boolean?): CFrame
+const function read_rotation(cursor: Cursor): CFrame
 	const id = read_u8(cursor)
 	if id ~= 0 then
 		const right: Vector3? = NORMALS[math.floor((id - 1) / 6) + 1]
@@ -330,14 +339,6 @@ const function read_rotation(cursor: Cursor, columns: boolean?): CFrame
 	local values = table.create(9) :: { number }
 	for index = 1, 9 do
 		values[index] = read_f32(cursor)
-	end
-	if columns then
-		return CFrame.fromMatrix(
-			Vector3.zero,
-			Vector3.new(values[1], values[2], values[3]),
-			Vector3.new(values[4], values[5], values[6]),
-			Vector3.new(values[7], values[8], values[9])
-		)
 	end
 	return CFrame.new(
 		0,
@@ -355,7 +356,7 @@ const function read_rotation(cursor: Cursor, columns: boolean?): CFrame
 	)
 end
 
-const function write_rotation(cursor: Cursor, value: CFrame, columns: boolean?)
+const function write_rotation(cursor: Cursor, value: CFrame)
 	local right, up = nil, nil
 	for index, normal in NORMALS do
 		if value.XVector == normal then
@@ -370,17 +371,9 @@ const function write_rotation(cursor: Cursor, value: CFrame, columns: boolean?)
 		return
 	end
 	write_u8(cursor, 0)
-	if columns then
-		for _, vector in { value.XVector, value.YVector, value.ZVector } do
-			write_f32(cursor, vector.X)
-			write_f32(cursor, vector.Y)
-			write_f32(cursor, vector.Z)
-		end
-	else
-		const components = { value:GetComponents() }
-		for index = 4, 12 do
-			write_f32(cursor, components[index])
-		end
+	const components = { value:GetComponents() }
+	for index = 4, 12 do
+		write_f32(cursor, components[index])
 	end
 end
 
@@ -455,7 +448,7 @@ const function read_value(cursor: Cursor, type_id: number, attribute: boolean?):
 		return BrickColor.new(read_u32(cursor))
 	elseif type_id == 0x10 then
 		const position = Vector3.new(read_f32(cursor), read_f32(cursor), read_f32(cursor))
-		return read_rotation(cursor, true) + position
+		return read_rotation(cursor) + position
 	elseif type_id == 0x12 then
 		return get_enum(read_string(cursor), read_u32(cursor))
 	elseif type_id == 0x14 then
@@ -553,7 +546,7 @@ const function write_value(cursor: Cursor, type_id: number, value: any, attribut
 		write_f32(cursor, value.X)
 		write_f32(cursor, value.Y)
 		write_f32(cursor, value.Z)
-		write_rotation(cursor, value, true)
+		write_rotation(cursor, value)
 	elseif type_id == 0x12 then
 		write_string(cursor, tostring(value.EnumType))
 		write_u32(cursor, value.Value)

@@ -17,6 +17,9 @@ Instance references outside the serialized hierarchy become `nil`.
 
 `deserialize_model(bytes: buffer): { Instance }` returns detached roots with their
 properties, descendants, internal references, attributes, and tags restored.
+CFrame attributes use the engine's row-major rotation layout. Buffers written by
+older versions with column-major CFrame attributes must be reserialized from the
+original instances; the format cannot distinguish the two layouts automatically.
 MeshParts with mesh content are created concurrently with `AssetService:CreateMeshPartAsync`
 before properties and references are restored, preserving their mesh IDs and
 collision, render, and fluid fidelity settings. This function may yield until all

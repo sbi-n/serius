@@ -76,6 +76,7 @@ end
 
 -- one LZ4 block
 const function decompress_lz4_block(source: buffer, offset: number, length: number, output_length: number): buffer
+	assert(offset >= 0 and length >= 0 and offset + length <= buffer.len(source), "truncated LZ4 block")
 	local output = buffer.create(output_length)
 	local input_position = offset
 	local input_end = offset + length
@@ -89,20 +90,24 @@ const function decompress_lz4_block(source: buffer, offset: number, length: numb
 		if literal_length == 15 then
 			local extra = 255
 			while extra == 255 do
+				assert(input_position < input_end, "truncated LZ4 literal length")
 				extra = buffer.readu8(source, input_position)
 				input_position += 1
 				literal_length += extra
 			end
 		end
 
+		assert(input_position + literal_length <= input_end, "truncated LZ4 literals")
+		assert(output_position + literal_length <= output_length, "corrupt LZ4 block: literal length out of range")
 		buffer.copy(output, output_position, source, input_position, literal_length)
 
 		output_position += literal_length
 		input_position += literal_length
-		if input_position >= input_end then
+		if input_position == input_end then
 			break
 		end
 
+		assert(input_position + 2 <= input_end, "truncated LZ4 match offset")
 		local match_offset = buffer.readu16(source, input_position)
 		input_position += 2
 
@@ -112,23 +117,23 @@ const function decompress_lz4_block(source: buffer, offset: number, length: numb
 		if match_length == 15 then
 			local extra = 255
 			while extra == 255 do
+				assert(input_position < input_end, "truncated LZ4 match length")
 				extra = buffer.readu8(source, input_position)
 				input_position += 1
 				match_length += extra
 			end
 		end
 		match_length += 4
+		assert(output_position + match_length <= output_length, "corrupt LZ4 block: match length out of range")
 
-		-- a match may overlap its own output, copying one offset's worth at a time replicates the pattern the way a byte loop would
+		-- Double the available pattern on each copy when a match overlaps its output.
 		local match_position = output_position - match_offset
-		while match_length > match_offset do
-			buffer.copy(output, output_position, output, match_position, match_offset)
-			output_position += match_offset
-			match_length -= match_offset
+		while match_length > 0 do
+			const count = math.min(output_position - match_position, match_length)
+			buffer.copy(output, output_position, output, match_position, count)
+			output_position += count
+			match_length -= count
 		end
-
-		buffer.copy(output, output_position, output, match_position, match_length)
-		output_position += match_length
 	end
 
 	assert(output_position == output_length, "corrupt LZ4 block: decompressed length mismatch")
